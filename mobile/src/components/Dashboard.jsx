@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useApp } from '../contexts/AppContext'
 import { db } from '../utils/supabase'
 import TaskCard from './TaskCard'
@@ -51,7 +52,8 @@ export default function Dashboard() {
   const progressPercent = Math.min(stats?.weekly_progress_percent ?? 0, 100)
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-4 pt-4 pb-24 gap-6">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <ScrollView contentContainerClassName="px-4 pt-4 pb-24 gap-6">
 
       {/* Header */}
       <View className="flex-row items-center justify-between">
@@ -253,5 +255,6 @@ export default function Dashboard() {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   )
 }

@@ -1,26 +1,35 @@
-import { View, Text, ScrollView, FlatList, TouchableOpacity, TextInput, Switch, Modal, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Switch, ActivityIndicator } from 'react-native'
 import { useState, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
 import { db } from '../utils/supabase'
-import { getNotebookTableOfContents } from '../utils/ai'
 
-const TAG_COLORS = {
-  reflection:    { bg: '#f0fdf4', text: '#16a34a', label: 'Reflection' },
-  lesson_note:   { bg: '#eff6ff', text: '#2563eb', label: 'Lesson Note' },
-  music_writing: { bg: '#fdf4ff', text: '#9333ea', label: 'Music Writing' },
-  technique:     { bg: '#fff7ed', text: '#ea580c', label: 'Technique' },
-  repertoire:    { bg: '#f0f9ff', text: '#0284c7', label: 'Repertoire' },
-  general:       { bg: '#f9fafb', text: '#6b7280', label: 'General' },
+const TAG_META = {
+  reflection:    { label: 'Reflection',    symbol: '✦' },
+  lesson_note:   { label: 'Lesson Note',   symbol: '♩' },
+  music_writing: { label: 'Music Writing', symbol: '♪' },
+  technique:     { label: 'Technique',     symbol: '◈' },
+  repertoire:    { label: 'Repertoire',    symbol: '♫' },
+  general:       { label: 'General',       symbol: '·' },
 }
 
-function formatDate(dateStr) {
+const CREAM = '#FAF7F0'
+const CREAM_DARK = '#F0EBE0'
+const INK = '#2C2416'
+const INK_LIGHT = '#7A6E5F'
+const INK_FAINT = '#B5A99A'
+const RULE = '#E8E0D0'
+const ACCENT = '#6B5B3E'
+
+function formatDateShort(dateStr) {
   const d = new Date(dateStr)
-  const diffDays = Math.floor((Date.now() - d) / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays}d ago`
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function preview(content, maxLen = 80) {
+  if (!content) return ''
+  const stripped = content.replace(/\n/g, ' ').trim()
+  return stripped.length > maxLen ? stripped.slice(0, maxLen) + '…' : stripped
 }
 
 export default function Notebook() {
@@ -30,10 +39,9 @@ export default function Notebook() {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
   const [aiReadEnabled, setAIReadEnabled] = useState(user?.ai_read_notebook || false)
-  const [tocLoading, setTocLoading] = useState(false)
-  const [tocText, setTocText] = useState(null)
-  const [showToc, setShowToc] = useState(false)
+  const [showContents, setShowContents] = useState(true)
 
   const load = useCallback(async () => {
     try {
@@ -58,34 +66,17 @@ export default function Notebook() {
   }
 
   const handleToggleAIRead = async (value) => {
-    const previousValue = aiReadEnabled
+    const prev = aiReadEnabled
     setAIReadEnabled(value)
     try {
       await updateProfile({ ai_read_notebook: value })
       setToast(
-        value ? 'Claude will now read your notebook for coaching context' : 'Notebook hidden from Claude',
+        value ? 'Claude will read your notebook for coaching context' : 'Notebook hidden from Claude',
         'success'
       )
     } catch (err) {
-      setAIReadEnabled(previousValue)
-      setToast(err.message || 'Failed to update notebook privacy', 'error')
-    }
-  }
-
-  const handleGenerateTOC = async () => {
-    if (entries.length === 0) { setToast('Add some entries first', 'error'); return }
-    setTocLoading(true)
-    try {
-      const toc = await getNotebookTableOfContents(entries)
-      setTocText(toc)
-      setShowToc(true)
-    } catch (err) {
-      setToast(
-        err.message.includes('API key') ? 'Add your Claude API key to use AI features' : 'Failed to generate — try again',
-        'error'
-      )
-    } finally {
-      setTocLoading(false)
+      setAIReadEnabled(prev)
+      setToast(err.message || 'Failed to update', 'error')
     }
   }
 
@@ -96,148 +87,216 @@ export default function Notebook() {
   )
 
   return (
-    <View className="flex-1 bg-gray-50">
-
-      {/* Header */}
-      <View className="px-4 pt-4 pb-3 bg-white border-b border-gray-100">
-        <View className="flex-row items-center justify-between mb-3">
-          <View>
-            <Text className="text-2xl font-bold text-gray-900">Notebook</Text>
-            <Text className="text-gray-400 text-sm">{entries.length} {entries.length === 1 ? 'entry' : 'entries'}</Text>
-          </View>
-          <TouchableOpacity
-            onPress={handleNewEntry}
-            className="bg-indigo-500 w-10 h-10 rounded-full items-center justify-center shadow-sm"
-            style={{ elevation: 3 }}
-          >
-            <Text className="text-white text-2xl" style={{ lineHeight: 28, marginTop: -1 }}>+</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search */}
-        <TextInput
-          className="bg-gray-100 rounded-xl px-4 py-2.5 text-sm text-gray-700 mb-3"
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search entries..."
-          placeholderTextColor="#9ca3af"
-        />
-
-        {/* AI read toggle */}
-        <View className="flex-row items-center justify-between py-1.5 mb-2">
-          <View>
-            <Text className="text-sm font-medium text-gray-800">Let Claude read this notebook</Text>
-            <Text className="text-xs text-gray-400">Uses it as extra context for coaching + recommendations</Text>
-          </View>
-          <Switch
-            value={aiReadEnabled}
-            onValueChange={handleToggleAIRead}
-            trackColor={{ false: '#e5e7eb', true: '#6366f1' }}
-            thumbColor="white"
-          />
-        </View>
-
-        {/* Table of contents button */}
-        <TouchableOpacity
-          onPress={handleGenerateTOC}
-          disabled={tocLoading || entries.length === 0}
-          className={`flex-row items-center justify-center gap-2 py-2.5 rounded-xl ${
-            tocLoading || entries.length === 0 ? 'bg-gray-100' : 'bg-purple-50 border border-purple-100'
-          }`}
-        >
-          {tocLoading
-            ? <ActivityIndicator size="small" color="#9ca3af" />
-            : <Text className="text-base">📋</Text>
-          }
-          <Text className={`text-sm font-medium ${tocLoading || entries.length === 0 ? 'text-gray-400' : 'text-purple-700'}`}>
-            {tocLoading ? 'Generating...' : 'AI Table of Contents'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Entry list */}
-      {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#6366f1" />
-        </View>
-      ) : filtered.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-8 gap-4">
-          <Text style={{ fontSize: 52 }}>📓</Text>
-          {search ? (
-            <Text className="text-gray-400 text-center">No entries matching "{search}"</Text>
-          ) : (
-            <>
-              <Text className="text-lg font-semibold text-gray-700 text-center">Your notebook is empty</Text>
-              <Text className="text-gray-400 text-center text-sm leading-relaxed">
-                Keep session reflections, lesson notes, music writing ideas, or anything else. Claude can read it to coach you better.
+    <View style={{ flex: 1, backgroundColor: CREAM }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Book cover / title area */}
+        <View style={{
+          backgroundColor: CREAM_DARK,
+          borderBottomWidth: 2,
+          borderBottomColor: RULE,
+          paddingHorizontal: 24,
+          paddingTop: 20,
+          paddingBottom: 20,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, letterSpacing: 3, color: INK_FAINT, textTransform: 'uppercase', marginBottom: 6 }}>
+                Practice Journal
               </Text>
-              <TouchableOpacity onPress={handleNewEntry} className="bg-indigo-500 px-6 py-3 rounded-xl">
-                <Text className="text-white font-semibold">Write First Entry</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={e => e.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-          renderItem={({ item }) => {
-            const tagKey = item.tags?.[0]
-            const tagStyle = TAG_COLORS[tagKey] || TAG_COLORS.general
-            return (
+              <Text style={{ fontSize: 26, fontWeight: '700', color: INK, letterSpacing: -0.5, lineHeight: 32 }}>
+                {`${user?.name?.split(' ')[0] || 'My'}'s Notebook`}
+              </Text>
+              <Text style={{ fontSize: 13, color: INK_LIGHT, marginTop: 4 }}>
+                {entries.length === 0 ? 'No entries yet' : `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
               <TouchableOpacity
-                onPress={() => navigation.navigate('NotebookEditor', { entry: item })}
-                className="bg-white rounded-2xl p-4 shadow-sm"
+                onPress={() => setShowSearch(!showSearch)}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: RULE, alignItems: 'center', justifyContent: 'center' }}
               >
-                <View className="flex-row items-start justify-between gap-2 mb-1">
-                  <Text className="font-semibold text-gray-900 flex-1 text-base" numberOfLines={1}>
-                    {item.title || 'Untitled'}
-                  </Text>
-                  <Text className="text-xs text-gray-400 shrink-0 mt-0.5">{formatDate(item.updated_at)}</Text>
-                </View>
-                {!!item.content && (
-                  <Text className="text-sm text-gray-500 leading-relaxed mb-2" numberOfLines={2}>
-                    {item.content}
-                  </Text>
-                )}
-                <View className="flex-row gap-1.5 flex-wrap">
-                  {tagKey && (
-                    <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: tagStyle.bg }}>
-                      <Text className="text-xs font-medium" style={{ color: tagStyle.text }}>{tagStyle.label}</Text>
-                    </View>
-                  )}
-                  {item.session_id && (
-                    <View className="px-2 py-0.5 rounded-full bg-indigo-50">
-                      <Text className="text-xs font-medium text-indigo-500">Post-session</Text>
-                    </View>
-                  )}
-                </View>
+                <Text style={{ fontSize: 16 }}>🔍</Text>
               </TouchableOpacity>
-            )
-          }}
-        />
-      )}
-
-      {/* TOC bottom sheet */}
-      <Modal visible={showToc} animationType="slide" transparent onRequestClose={() => setShowToc(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View className="bg-white rounded-t-3xl px-5 pt-5 pb-10" style={{ maxHeight: '80%' }}>
-            <View className="w-12 h-1 bg-gray-200 rounded-full self-center mb-4" />
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-xl font-bold text-gray-900">Table of Contents</Text>
-              <TouchableOpacity onPress={() => setShowToc(false)} className="p-2">
-                <Text className="text-gray-400 text-lg">✕</Text>
+              <TouchableOpacity
+                onPress={handleNewEntry}
+                style={{
+                  width: 36, height: 36, borderRadius: 18,
+                  backgroundColor: ACCENT,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: 'white', fontSize: 22, lineHeight: 28, marginTop: -2 }}>+</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text className="text-gray-700 leading-7 text-sm">{tocText}</Text>
-            </ScrollView>
+          </View>
+
+          {showSearch && (
+            <TextInput
+              style={{
+                marginTop: 14,
+                backgroundColor: 'white',
+                borderRadius: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 9,
+                fontSize: 14,
+                color: INK,
+                borderWidth: 1,
+                borderColor: RULE,
+              }}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search entries…"
+              placeholderTextColor={INK_FAINT}
+              autoFocus
+            />
+          )}
+
+          {/* AI read toggle */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: RULE,
+          }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: INK_LIGHT }}>Let Claude read this</Text>
+              <Text style={{ fontSize: 11, color: INK_FAINT, marginTop: 1 }}>Adds notebook context to AI coaching</Text>
+            </View>
+            <Switch
+              value={aiReadEnabled}
+              onValueChange={handleToggleAIRead}
+              trackColor={{ false: RULE, true: ACCENT }}
+              thumbColor="white"
+            />
           </View>
         </View>
-      </Modal>
 
+        {loading ? (
+          <View style={{ paddingTop: 60, alignItems: 'center' }}>
+            <ActivityIndicator color={ACCENT} />
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={{ paddingTop: 60, paddingHorizontal: 32, alignItems: 'center', gap: 14 }}>
+            <Text style={{ fontSize: 48 }}>📓</Text>
+            {search ? (
+              <Text style={{ color: INK_LIGHT, textAlign: 'center', fontSize: 15 }}>
+                No entries matching "{search}"
+              </Text>
+            ) : (
+              <>
+                <Text style={{ fontSize: 18, fontWeight: '600', color: INK, textAlign: 'center' }}>
+                  Your notebook is empty
+                </Text>
+                <Text style={{ color: INK_LIGHT, textAlign: 'center', fontSize: 14, lineHeight: 22 }}>
+                  Write session reflections, lesson notes, music ideas, or anything you want Claude to know about your practice.
+                </Text>
+                <TouchableOpacity
+                  onPress={handleNewEntry}
+                  style={{ backgroundColor: ACCENT, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10, marginTop: 4 }}
+                >
+                  <Text style={{ color: 'white', fontWeight: '600', fontSize: 15 }}>Write First Entry</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        ) : (
+          <>
+            {/* Inline Contents / TOC */}
+            <View style={{ marginHorizontal: 24, marginTop: 24, marginBottom: 8 }}>
+              <TouchableOpacity
+                onPress={() => setShowContents(!showContents)}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}
+              >
+                <Text style={{ fontSize: 11, letterSpacing: 3, color: INK_FAINT, textTransform: 'uppercase' }}>
+                  Contents
+                </Text>
+                <Text style={{ fontSize: 12, color: INK_FAINT }}>{showContents ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+
+              {showContents && (
+                <View style={{ borderTopWidth: 1, borderTopColor: RULE }}>
+                  {filtered.map((entry, i) => {
+                    const tagKey = entry.tags?.[0]
+                    const tagMeta = TAG_META[tagKey] || TAG_META.general
+                    return (
+                      <TouchableOpacity
+                        key={entry.id}
+                        onPress={() => navigation.navigate('NotebookEditor', { entry })}
+                        style={{
+                          flexDirection: 'row', alignItems: 'baseline',
+                          paddingVertical: 9,
+                          borderBottomWidth: 1,
+                          borderBottomColor: RULE,
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, color: INK_FAINT, width: 26, fontVariant: ['tabular-nums'] }}>
+                          {i + 1}
+                        </Text>
+                        <Text style={{ fontSize: 13, color: ACCENT, marginRight: 6 }}>{tagMeta.symbol}</Text>
+                        <Text
+                          style={{ flex: 1, fontSize: 14, color: INK, fontWeight: '500' }}
+                          numberOfLines={1}
+                        >
+                          {entry.title || 'Untitled'}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: INK_FAINT, marginLeft: 8, flexShrink: 0 }}>
+                          {formatDateShort(entry.updated_at)}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              )}
+            </View>
+
+            {/* Rule */}
+            <View style={{ marginHorizontal: 24, marginVertical: 20, height: 1, backgroundColor: RULE }} />
+
+            {/* Chapters */}
+            <View style={{ paddingHorizontal: 24, gap: 0 }}>
+              {filtered.map((entry, i) => {
+                const tagKey = entry.tags?.[0]
+                const tagMeta = TAG_META[tagKey] || TAG_META.general
+                return (
+                  <TouchableOpacity
+                    key={entry.id}
+                    onPress={() => navigation.navigate('NotebookEditor', { entry })}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingVertical: 20,
+                      borderBottomWidth: 1,
+                      borderBottomColor: RULE,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <Text style={{ fontSize: 11, color: INK_FAINT, letterSpacing: 1, textTransform: 'uppercase' }}>
+                        {tagMeta.symbol} {tagMeta.label}
+                      </Text>
+                      {entry.session_id && (
+                        <Text style={{ fontSize: 11, color: ACCENT, letterSpacing: 1, textTransform: 'uppercase' }}>
+                          · Post-session
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: INK, letterSpacing: -0.3, lineHeight: 24, marginBottom: 6 }}>
+                      {entry.title || 'Untitled'}
+                    </Text>
+                    {!!entry.content && (
+                      <Text style={{ fontSize: 14, color: INK_LIGHT, lineHeight: 21 }}>
+                        {preview(entry.content)}
+                      </Text>
+                    )}
+                    <Text style={{ fontSize: 12, color: INK_FAINT, marginTop: 10 }}>
+                      {formatDateShort(entry.updated_at)}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   )
 }

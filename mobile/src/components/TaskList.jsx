@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
 import { useState } from 'react'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useApp } from '../contexts/AppContext'
 import TaskCard from './TaskCard'
 import SmartTaskCreate from './SmartTaskCreate'
@@ -57,7 +58,8 @@ export default function TaskList() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-4 pt-4 pb-24">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <ScrollView contentContainerClassName="px-4 pt-4 pb-24">
       {/* Header */}
       <View className="flex-row items-center justify-between mb-4">
         <View>
@@ -193,5 +195,6 @@ export default function TaskList() {
         </View>
       )}
     </ScrollView>
+    </SafeAreaView>
   )
 }

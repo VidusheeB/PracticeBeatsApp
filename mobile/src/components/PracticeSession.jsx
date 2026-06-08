@@ -34,7 +34,6 @@ export default function PracticeSession() {
   }, [])
 
   const startTimer = () => {
-    if (selectedTasks.size === 0) { setToast('Please select at least one task', 'warning'); return }
     if (timerRef.current) return
     setShowPreCheckIn(true)
   }
@@ -63,6 +62,7 @@ export default function PracticeSession() {
 
   const buildTaskBreakdown = (durationMinutes) => {
     const taskIds = Array.from(selectedTasks)
+    if (taskIds.length === 0) return []
     const base = Math.floor(durationMinutes / taskIds.length)
     const remainder = durationMinutes - base * taskIds.length
     return taskIds.map((taskId, i) => ({ task_id: taskId, minutes_spent: base + (i < remainder ? 1 : 0) }))
@@ -140,13 +140,14 @@ export default function PracticeSession() {
         <Text className="text-gray-500 mb-6">What are you working on today?</Text>
 
         {tasks.length === 0 ? (
-          <View className="bg-white rounded-2xl p-8 items-center">
-            <Text className="text-4xl mb-2">📝</Text>
+          <View className="bg-white rounded-2xl p-6 items-center mb-6">
+            <Text className="text-4xl mb-2">🎵</Text>
             <Text className="text-gray-500 mb-1">No tasks yet</Text>
-            <Text className="text-sm text-gray-400 text-center">Add tasks from the Tasks tab to track your practice</Text>
+            <Text className="text-sm text-gray-400 text-center">You can still practice freely! Add tasks from the Tasks tab to track specific pieces.</Text>
           </View>
         ) : (
           <View className="gap-2 mb-6">
+            <Text className="text-xs text-gray-400 mb-1">Select tasks to track (optional)</Text>
             {tasks.map(task => (
               <TouchableOpacity
                 key={task.id}
@@ -173,10 +174,11 @@ export default function PracticeSession() {
 
         <TouchableOpacity
           onPress={startTimer}
-          disabled={selectedTasks.size === 0}
-          className={`rounded-xl py-4 items-center ${selectedTasks.size === 0 ? 'bg-indigo-300' : 'bg-indigo-500'}`}
+          className="rounded-xl py-4 items-center bg-indigo-500"
         >
-          <Text className="text-white font-semibold text-lg">Start Timer</Text>
+          <Text className="text-white font-semibold text-lg">
+            {selectedTasks.size === 0 ? 'Start Free Practice' : 'Start Timer'}
+          </Text>
         </TouchableOpacity>
 
         {showPreCheckIn && (
@@ -198,10 +200,14 @@ export default function PracticeSession() {
 
         <View className="mb-8 items-center">
           <Text className="text-sm text-gray-600 mb-2">Working on:</Text>
-          {Array.from(selectedTasks).map(id => {
-            const task = tasks.find(t => t.id === id)
-            return task ? <Text key={id} className="font-medium text-gray-900">{task.title}</Text> : null
-          })}
+          {selectedTasks.size === 0 ? (
+            <Text className="font-medium text-gray-900">🎵 Free Practice</Text>
+          ) : (
+            Array.from(selectedTasks).map(id => {
+              const task = tasks.find(t => t.id === id)
+              return task ? <Text key={id} className="font-medium text-gray-900">{task.title}</Text> : null
+            })
+          )}
         </View>
 
         <View className="gap-4 items-center">

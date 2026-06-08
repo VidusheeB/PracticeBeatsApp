@@ -32,6 +32,7 @@ import DeepCheckIn from './src/components/DeepCheckIn'
 import Notebook from './src/components/Notebook'
 import NotebookEditor from './src/components/NotebookEditor'
 import AIChat from './src/components/AIChat'
+import PracticeSessionsLog from './src/components/PracticeSessionsLog'
 import Toast from './src/components/Toast'
 
 const Tab = createBottomTabNavigator()
@@ -185,6 +186,11 @@ function AppStack() {
       <Stack.Screen
         name="AIChat"
         component={AIChat}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PracticeSessionsLog"
+        component={PracticeSessionsLog}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>
