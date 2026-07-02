@@ -25,8 +25,10 @@ export default function NotebookEditor() {
   const isSessionReflection = !!route.params?.reflection
   // Guided prompts aren't exclusive to the post-session flow — any brand new
   // entry (session reflection OR a blank entry from the Notebook "+" button)
-  // gets them. An entry that already has content is left alone.
-  const isFreshEntry = !initialEntry?.content?.trim() && !initialEntry?.title?.trim()
+  // gets them. Session reflections always qualify even though they arrive
+  // pre-filled with the goals summary; other entries only if truly empty.
+  const isFreshEntry = isSessionReflection
+    || (!initialEntry?.content?.trim() && !initialEntry?.title?.trim())
 
   const [title, setTitle] = useState(initialEntry?.title || '')
   const [content, setContent] = useState(initialEntry?.content || '')

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
+import { db } from '../utils/supabase'
 import MindfulCheckIn from './MindfulCheckIn'
 import PreSessionCheckIn from './PreSessionCheckIn'
 import SessionGoalsModal from './SessionGoalsModal'
@@ -26,6 +27,8 @@ export default function PracticeSession() {
   const [showPreCheckIn, setShowPreCheckIn] = useState(false)
   const [showGoalsModal, setShowGoalsModal] = useState(false)
   const [sessionGoals, setSessionGoals] = useState([])
+  const [goalResults, setGoalResults] = useState([null, null, null])
+  const [reflectionEntry, setReflectionEntry] = useState(null)
 
   useEffect(() => {
     if (route.params?.selectedTask) {
@@ -78,9 +81,41 @@ export default function PracticeSession() {
     return taskIds.map((taskId, i) => ({ task_id: taskId, minutes_spent: base + (i < remainder ? 1 : 0) }))
   }
 
+  const buildGoalsPayload = () => sessionGoals.map((text, i) => ({ text, accomplished: goalResults[i] ?? null }))
+
+  const formatReflectionContent = (goalsPayload) => {
+    if (!goalsPayload.length) return ''
+    const lines = goalsPayload.map((g, i) => {
+      const mark = g.accomplished === true ? '✅ Accomplished'
+        : g.accomplished === false ? '❌ Not yet'
+        : '– Not marked'
+      return `${i + 1}. ${g.text} — ${mark}`
+    })
+    return `Goals for this session:\n${lines.join('\n')}\n`
+  }
+
+  // Every practice session gets a reflection entry automatically — the
+  // "Add Reflection" button opens/extends it, but it exists whether or not
+  // the user ever taps that button.
+  const createSessionReflection = async (sessionRow, goalsPayload) => {
+    try {
+      const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const entry = await db.createNotebookEntry(user.id, {
+        title: `Practice Reflection · ${dateLabel}`,
+        content: formatReflectionContent(goalsPayload),
+        tags: ['reflection'],
+        session_id: sessionRow.id,
+      })
+      return entry
+    } catch {
+      return null // non-blocking — session save already succeeded
+    }
+  }
+
   const handleSaveSession = async () => {
     if (!startTime) { setToast('Session start time is missing', 'error'); return }
     const durationMinutes = Math.max(1, Math.ceil(seconds / 60))
+    const goalsPayload = buildGoalsPayload()
     try {
       const result = await saveSession({
         start_time: startTime.toISOString(),
@@ -89,9 +124,11 @@ export default function PracticeSession() {
         progress_rating: progressRating || null,
         energy_rating: energyRating || null,
         notes: notes || null,
+        goals: goalsPayload,
         tasks: buildTaskBreakdown(durationMinutes),
       })
       setSessionResult(result)
+      setReflectionEntry(await createSessionReflection(result, goalsPayload))
       setPhase('complete')
       setShowCheckIn(true)
     } catch {
@@ -102,14 +139,17 @@ export default function PracticeSession() {
   const handleQuickSave = async () => {
     if (!startTime) { setToast('Session start time is missing', 'error'); return }
     const durationMinutes = Math.max(1, Math.ceil(seconds / 60))
+    const goalsPayload = buildGoalsPayload()
     try {
-      await saveSession({
+      const result = await saveSession({
         start_time: startTime.toISOString(),
         duration_minutes: durationMinutes,
         focus_rating: null, progress_rating: null, energy_rating: null,
         notes: `Quick save - ${durationMinutes} min`,
+        goals: goalsPayload,
         tasks: buildTaskBreakdown(durationMinutes),
       })
+      await createSessionReflection(result, goalsPayload)
       setToast(`Saved ${durationMinutes} min of practice!`, 'success')
       navigation.navigate('Home')
     } catch {
@@ -291,6 +331,32 @@ export default function PracticeSession() {
           <RatingInput label="Did you make progress?" value={progressRating} onChange={setProgressRating} />
           <RatingInput label="How's your energy?" value={energyRating} onChange={setEnergyRating} />
         </View>
+
+        {sessionGoals.length > 0 && (
+          <View className="w-full mb-6">
+            <Text className="text-sm text-gray-600 mb-3 text-center">Did you accomplish your goals?</Text>
+            {sessionGoals.map((goal, i) => (
+              <View key={i} className="bg-white rounded-xl p-3 mb-2 border border-gray-100">
+                <Text className="text-sm text-gray-800 mb-2">{goal}</Text>
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={() => setGoalResults(prev => prev.map((r, j) => j === i ? true : r))}
+                    className={`flex-1 py-2 rounded-lg items-center ${goalResults[i] === true ? 'bg-green-500' : 'bg-gray-100'}`}
+                  >
+                    <Text className={goalResults[i] === true ? 'text-white font-semibold' : 'text-gray-500'}>Yes</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setGoalResults(prev => prev.map((r, j) => j === i ? false : r))}
+                    className={`flex-1 py-2 rounded-lg items-center ${goalResults[i] === false ? 'bg-red-500' : 'bg-gray-100'}`}
+                  >
+                    <Text className={goalResults[i] === false ? 'text-white font-semibold' : 'text-gray-500'}>Not yet</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <TextInput
           className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white mb-6"
           value={notes}
@@ -328,6 +394,10 @@ export default function PracticeSession() {
         <View className="flex-row gap-3 w-full">
           <TouchableOpacity
             onPress={() => navigation.navigate('NotebookEditor', {
+              // The reflection entry already exists — it was auto-created
+              // alongside the session — so we open it in place rather than
+              // creating a second one.
+              entry: reflectionEntry || undefined,
               sessionId: sessionResult.id,
               reflection: true,
               reflectionSeed: {
@@ -337,6 +407,7 @@ export default function PracticeSession() {
                 energyRating,
                 tasks: tasks.filter(t => selectedTasks.has(t.id)),
                 goals: sessionGoals,
+                goalResults,
               },
             })}
             className="flex-1 bg-amber-50 rounded-xl py-3 items-center border border-amber-100"

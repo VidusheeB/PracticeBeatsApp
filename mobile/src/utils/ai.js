@@ -103,7 +103,7 @@ const DEFAULT_REFLECTION_PROMPTS = [
 ]
 
 export async function getReflectionPrompts(seed = {}) {
-  const { minutes, focusRating, progressRating, energyRating, tasks = [], goals = [] } = seed
+  const { minutes, focusRating, progressRating, energyRating, tasks = [], goals = [], goalResults = [] } = seed
   const pieces = tasks.map(sanitizeTask)
 
   if (!CLAUDE_API_KEY) return DEFAULT_REFLECTION_PROMPTS
@@ -117,7 +117,13 @@ export async function getReflectionPrompts(seed = {}) {
     : 'No specific pieces logged.'
 
   const goalsLine = goals.length
-    ? goals.map((g, i) => `${i + 1}. ${g}`).join('\n')
+    ? goals.map((g, i) => {
+        const result = goalResults[i]
+        const mark = result === true ? ' — they marked this accomplished'
+          : result === false ? ' — they marked this NOT accomplished'
+          : ''
+        return `${i + 1}. ${g}${mark}`
+      }).join('\n')
     : 'No goals set for this entry.'
 
   const sessionLine = minutes
