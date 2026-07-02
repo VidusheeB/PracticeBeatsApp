@@ -93,6 +93,53 @@ Rules:
   return JSON.parse(clean)
 }
 
+// Generate 3 short, personalised reflection prompts for a just-finished session.
+// Grounded in the pieces practiced, their goals/deadlines, and how it felt.
+// Returns a plain array of strings; falls back to sensible defaults on any error.
+const DEFAULT_REFLECTION_PROMPTS = [
+  'What went well this session, and what felt hard?',
+  'What is the one thing you want to improve before next time?',
+  'How did your focus and energy shape how you played today?',
+]
+
+export async function getReflectionPrompts(seed = {}) {
+  const { minutes, focusRating, progressRating, energyRating, tasks = [] } = seed
+  const pieces = tasks.map(sanitizeTask)
+
+  if (!CLAUDE_API_KEY) return DEFAULT_REFLECTION_PROMPTS
+
+  const rate = (n) => (n ? `${n}/5` : 'not rated')
+  const piecesLine = pieces.length
+    ? pieces.map((p) => {
+        const due = p.due_date ? `, due ${p.due_date}` : ''
+        return `• ${p.title} (${(p.category || 'repertoire').replace('_', ' ')}${due})`
+      }).join('\n')
+    : 'No specific pieces logged.'
+
+  const prompt = `A music student just finished a ${minutes || 'short'}-minute practice session.
+Focus: ${rate(focusRating)}, Progress: ${rate(progressRating)}, Energy: ${rate(energyRating)}.
+
+Pieces practiced:
+${piecesLine}
+
+Write exactly 3 short reflection prompts to guide their practice-journal entry.
+- Specific to these pieces and how the session felt — not generic.
+- Each one sentence, warm and coaching in tone, ending with a question mark.
+- Draw on deliberate-practice thinking (what to fix, why, the next concrete step) without jargon.
+
+Return ONLY a JSON array of 3 strings — no markdown, no explanation:
+["...", "...", "..."]`
+
+  try {
+    const raw = await callClaude(prompt, 300)
+    const clean = raw.replace(/```json\n?|```\n?/g, '').trim()
+    const arr = JSON.parse(clean)
+    return Array.isArray(arr) && arr.length ? arr.slice(0, 3) : DEFAULT_REFLECTION_PROMPTS
+  } catch {
+    return DEFAULT_REFLECTION_PROMPTS
+  }
+}
+
 // Decide the optimal reminder time + write a personalised notification message.
 // Claude reads practice notes, due date, and when the user typically practices
 // to produce both the message body and the exact send time.

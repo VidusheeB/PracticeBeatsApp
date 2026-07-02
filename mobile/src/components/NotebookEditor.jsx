@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
 import { db } from '../utils/supabase'
+import { getReflectionPrompts } from '../utils/ai'
 
 const TAGS = [
   { key: 'reflection',    label: 'Reflection',    bg: '#f0fdf4', text: '#16a34a' },
@@ -21,12 +22,15 @@ export default function NotebookEditor() {
 
   const initialEntry = route.params?.entry
   const sessionId = route.params?.sessionId || null
+  const isReflection = route.params?.reflection && !initialEntry
 
   const [title, setTitle] = useState(initialEntry?.title || '')
   const [content, setContent] = useState(initialEntry?.content || '')
   const [tags, setTags] = useState(initialEntry?.tags || [])
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
+  const [prompts, setPrompts] = useState([])
+  const [promptsLoading, setPromptsLoading] = useState(isReflection)
 
   const entryIdRef = useRef(initialEntry?.id || null)
   const saveTimerRef = useRef(null)
@@ -93,6 +97,29 @@ export default function NotebookEditor() {
     const next = tags.includes(key) ? tags.filter(t => t !== key) : [key, ...tags.filter(t => t !== key)]
     setTags(next)
     scheduleAutosave(title, content, next)
+  }
+
+  // Reflection mode: scaffold the entry (title + tag) and pull AI prompts
+  // grounded in the session that was just finished. Runs once on mount.
+  useEffect(() => {
+    if (!isReflection) return
+    const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    setTitle(prev => prev || `Practice Reflection · ${dateLabel}`)
+    setTags(prev => prev.includes('reflection') ? prev : ['reflection', ...prev])
+
+    let cancelled = false
+    getReflectionPrompts(route.params?.reflectionSeed || {})
+      .then(p => { if (!cancelled) setPrompts(p) })
+      .finally(() => { if (!cancelled) setPromptsLoading(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Drop a prompt into the body as a heading to write an answer under.
+  const addPrompt = (text) => {
+    const next = content ? `${content.trimEnd()}\n\n${text}\n` : `${text}\n`
+    setContent(next)
+    scheduleAutosave(title, next, tags)
   }
 
   const handleDone = async () => {
@@ -186,6 +213,30 @@ export default function NotebookEditor() {
             )
           })}
         </ScrollView>
+
+        {/* Reflection prompts (AI-generated, session-aware) */}
+        {isReflection && (
+          <View className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-5">
+            <Text className="text-amber-800 font-semibold text-sm mb-1">Reflect on this session ✨</Text>
+            {promptsLoading ? (
+              <Text className="text-amber-500 text-sm italic mt-1">Thinking of prompts for you…</Text>
+            ) : (
+              <>
+                <Text className="text-amber-600 text-xs mb-3">Tap a prompt to add it to your entry.</Text>
+                {prompts.map((p, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => addPrompt(p)}
+                    className="flex-row items-start gap-2 py-2 border-t border-amber-100"
+                  >
+                    <Text className="text-amber-400 font-bold text-base leading-6">＋</Text>
+                    <Text className="flex-1 text-amber-900 text-sm leading-6">{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </View>
+        )}
 
         {/* Divider */}
         <View className="h-px bg-gray-100 mb-4" />

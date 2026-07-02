@@ -258,7 +258,7 @@ export default function PracticeSession() {
   if (phase === 'rating') {
     return (
       <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
-      <ScrollView contentContainerClassName="px-4 py-8 items-center">
+      <ScrollView contentContainerClassName="px-4 py-8 items-center flex-grow justify-center">
         <Text className="text-6xl mb-4">🎉</Text>
         <Text className="text-2xl font-bold text-gray-900 mb-1">Great work!</Text>
         <Text className="text-gray-500 mb-8">
@@ -305,11 +305,21 @@ export default function PracticeSession() {
         </Text>
         <View className="flex-row gap-3 w-full">
           <TouchableOpacity
-            onPress={() => navigation.navigate('NotebookEditor', { sessionId: sessionResult.id })}
+            onPress={() => navigation.navigate('NotebookEditor', {
+              sessionId: sessionResult.id,
+              reflection: true,
+              reflectionSeed: {
+                minutes: Math.ceil(seconds / 60),
+                focusRating,
+                progressRating,
+                energyRating,
+                tasks: tasks.filter(t => selectedTasks.has(t.id)),
+              },
+            })}
             className="flex-1 bg-amber-50 rounded-xl py-3 items-center border border-amber-100"
           >
             <Text className="text-xl mb-0.5">📓</Text>
-            <Text className="text-amber-700 font-semibold text-sm">Write Reflection</Text>
+            <Text className="text-amber-700 font-semibold text-sm">Add Reflection</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Home')} className="flex-1 bg-indigo-500 rounded-xl py-3 items-center">
             <Text className="text-white font-semibold">Dashboard</Text>
