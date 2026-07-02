@@ -81,6 +81,15 @@ export default function PracticeSession() {
     return taskIds.map((taskId, i) => ({ task_id: taskId, minutes_spent: base + (i < remainder ? 1 : 0) }))
   }
 
+  // Full "Save & Finish" requires all 6: the 3 ratings + a Yes/Not yet for
+  // each of the 3 mandatory goals. This app exists for people who don't
+  // self-structure their practice — an optional check-in would let the one
+  // habit-building step of the app quietly go unused. Quick-save (exiting
+  // early from a paused session) stays exempt, so short/interrupted
+  // sessions aren't blocked by a full check-in.
+  const ratingsComplete = focusRating > 0 && progressRating > 0 && energyRating > 0
+    && goalResults.every(r => r !== null)
+
   const buildGoalsPayload = () => sessionGoals.map((text, i) => ({ text, accomplished: goalResults[i] ?? null }))
 
   const formatReflectionContent = (goalsPayload) => {
@@ -114,6 +123,7 @@ export default function PracticeSession() {
 
   const handleSaveSession = async () => {
     if (!startTime) { setToast('Session start time is missing', 'error'); return }
+    if (!ratingsComplete) { setToast('Answer all 3 ratings and all 3 goals first', 'error'); return }
     const durationMinutes = Math.max(1, Math.ceil(seconds / 60))
     const goalsPayload = buildGoalsPayload()
     try {
@@ -363,7 +373,14 @@ export default function PracticeSession() {
           onChangeText={setNotes}
           placeholder="Any notes about this session?"
         />
-        <TouchableOpacity onPress={handleSaveSession} className="bg-indigo-500 rounded-xl py-4 w-full items-center">
+        {!ratingsComplete && (
+          <Text className="text-xs text-gray-400 mb-2 text-center">Answer all 3 ratings and all 3 goals to finish</Text>
+        )}
+        <TouchableOpacity
+          onPress={handleSaveSession}
+          disabled={!ratingsComplete}
+          className={`rounded-xl py-4 w-full items-center ${ratingsComplete ? 'bg-indigo-500' : 'bg-indigo-200'}`}
+        >
           <Text className="text-white font-semibold text-lg">Save & Finish</Text>
         </TouchableOpacity>
       </ScrollView>
