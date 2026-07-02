@@ -103,7 +103,7 @@ const DEFAULT_REFLECTION_PROMPTS = [
 ]
 
 export async function getReflectionPrompts(seed = {}) {
-  const { minutes, focusRating, progressRating, energyRating, tasks = [] } = seed
+  const { minutes, focusRating, progressRating, energyRating, tasks = [], goals = [] } = seed
   const pieces = tasks.map(sanitizeTask)
 
   if (!CLAUDE_API_KEY) return DEFAULT_REFLECTION_PROMPTS
@@ -116,14 +116,24 @@ export async function getReflectionPrompts(seed = {}) {
       }).join('\n')
     : 'No specific pieces logged.'
 
-  const prompt = `A music student just finished a ${minutes || 'short'}-minute practice session.
-Focus: ${rate(focusRating)}, Progress: ${rate(progressRating)}, Energy: ${rate(energyRating)}.
+  const goalsLine = goals.length
+    ? goals.map((g, i) => `${i + 1}. ${g}`).join('\n')
+    : 'No goals set for this entry.'
+
+  const sessionLine = minutes
+    ? `A music student just finished a ${minutes}-minute practice session.\nFocus: ${rate(focusRating)}, Progress: ${rate(progressRating)}, Energy: ${rate(energyRating)}.`
+    : 'A music student is writing a free-form notebook entry (not tied to a specific session).'
+
+  const prompt = `${sessionLine}
+
+Goals they set for this session:
+${goalsLine}
 
 Pieces practiced:
 ${piecesLine}
 
 Write exactly 3 short reflection prompts to guide their practice-journal entry.
-- Specific to these pieces and how the session felt — not generic.
+- Reference whether they made headway on their stated goals where relevant — not generic.
 - Each one sentence, warm and coaching in tone, ending with a question mark.
 - Draw on deliberate-practice thinking (what to fix, why, the next concrete step) without jargon.
 

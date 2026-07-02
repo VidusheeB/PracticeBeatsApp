@@ -18,11 +18,15 @@ const TAGS = [
 export default function NotebookEditor() {
   const navigation = useNavigation()
   const route = useRoute()
-  const { user, setToast } = useApp()
+  const { user, tasks, setToast } = useApp()
 
   const initialEntry = route.params?.entry
   const sessionId = route.params?.sessionId || null
-  const isReflection = route.params?.reflection && !initialEntry
+  const isSessionReflection = !!route.params?.reflection
+  // Guided prompts aren't exclusive to the post-session flow — any brand new
+  // entry (session reflection OR a blank entry from the Notebook "+" button)
+  // gets them. An entry that already has content is left alone.
+  const isFreshEntry = !initialEntry?.content?.trim() && !initialEntry?.title?.trim()
 
   const [title, setTitle] = useState(initialEntry?.title || '')
   const [content, setContent] = useState(initialEntry?.content || '')
@@ -30,7 +34,7 @@ export default function NotebookEditor() {
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
   const [prompts, setPrompts] = useState([])
-  const [promptsLoading, setPromptsLoading] = useState(isReflection)
+  const [promptsLoading, setPromptsLoading] = useState(isFreshEntry)
 
   const entryIdRef = useRef(initialEntry?.id || null)
   const saveTimerRef = useRef(null)
@@ -99,16 +103,21 @@ export default function NotebookEditor() {
     scheduleAutosave(title, content, next)
   }
 
-  // Reflection mode: scaffold the entry (title + tag) and pull AI prompts
-  // grounded in the session that was just finished. Runs once on mount.
+  // Session-reflection entries get an auto title + tag; any fresh entry
+  // (session-triggered or a blank one from Notebook's "+") gets AI prompts —
+  // grounded in the session just finished, or in current tasks otherwise.
   useEffect(() => {
-    if (!isReflection) return
-    const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    setTitle(prev => prev || `Practice Reflection · ${dateLabel}`)
-    setTags(prev => prev.includes('reflection') ? prev : ['reflection', ...prev])
+    if (isSessionReflection) {
+      const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      setTitle(prev => prev || `Practice Reflection · ${dateLabel}`)
+      setTags(prev => prev.includes('reflection') ? prev : ['reflection', ...prev])
+    }
+
+    if (!isFreshEntry) return
+    const seed = route.params?.reflectionSeed || { tasks: tasks.slice(0, 5) }
 
     let cancelled = false
-    getReflectionPrompts(route.params?.reflectionSeed || {})
+    getReflectionPrompts(seed)
       .then(p => { if (!cancelled) setPrompts(p) })
       .finally(() => { if (!cancelled) setPromptsLoading(false) })
     return () => { cancelled = true }
@@ -214,10 +223,12 @@ export default function NotebookEditor() {
           })}
         </ScrollView>
 
-        {/* Reflection prompts (AI-generated, session-aware) */}
-        {isReflection && (
+        {/* Guided AI prompts — shown for any fresh entry, not just post-session */}
+        {isFreshEntry && (
           <View className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-5">
-            <Text className="text-amber-800 font-semibold text-sm mb-1">Reflect on this session ✨</Text>
+            <Text className="text-amber-800 font-semibold text-sm mb-1">
+              {isSessionReflection ? 'Reflect on this session ✨' : 'Need inspiration? ✨'}
+            </Text>
             {promptsLoading ? (
               <Text className="text-amber-500 text-sm italic mt-1">Thinking of prompts for you…</Text>
             ) : (

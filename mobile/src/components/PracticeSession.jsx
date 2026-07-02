@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
 import MindfulCheckIn from './MindfulCheckIn'
 import PreSessionCheckIn from './PreSessionCheckIn'
+import SessionGoalsModal from './SessionGoalsModal'
 
 export default function PracticeSession() {
   const navigation = useNavigation()
@@ -23,6 +24,8 @@ export default function PracticeSession() {
   const [sessionResult, setSessionResult] = useState(null)
   const [showCheckIn, setShowCheckIn] = useState(false)
   const [showPreCheckIn, setShowPreCheckIn] = useState(false)
+  const [showGoalsModal, setShowGoalsModal] = useState(false)
+  const [sessionGoals, setSessionGoals] = useState([])
 
   useEffect(() => {
     if (route.params?.selectedTask) {
@@ -36,6 +39,12 @@ export default function PracticeSession() {
 
   const startTimer = () => {
     if (timerRef.current) return
+    setShowGoalsModal(true)
+  }
+
+  const handleGoalsDone = (goals) => {
+    setSessionGoals(goals)
+    setShowGoalsModal(false)
     setShowPreCheckIn(true)
   }
 
@@ -183,6 +192,10 @@ export default function PracticeSession() {
           </Text>
         </TouchableOpacity>
 
+        {showGoalsModal && (
+          <SessionGoalsModal onDone={handleGoalsDone} />
+        )}
+
         {showPreCheckIn && (
           <PreSessionCheckIn
             onDone={beginTimerAfterCheckIn}
@@ -213,6 +226,15 @@ export default function PracticeSession() {
             })
           )}
         </View>
+
+        {sessionGoals.length > 0 && (
+          <View className="w-full max-w-md bg-indigo-50 rounded-2xl px-4 py-3 mb-8">
+            <Text className="text-xs font-semibold text-indigo-600 mb-1">Today's Goals</Text>
+            {sessionGoals.map((g, i) => (
+              <Text key={i} className="text-sm text-indigo-900">• {g}</Text>
+            ))}
+          </View>
+        )}
 
         <View className="gap-4 items-center">
           <View className="flex-row gap-4">
@@ -314,6 +336,7 @@ export default function PracticeSession() {
                 progressRating,
                 energyRating,
                 tasks: tasks.filter(t => selectedTasks.has(t.id)),
+                goals: sessionGoals,
               },
             })}
             className="flex-1 bg-amber-50 rounded-xl py-3 items-center border border-amber-100"
