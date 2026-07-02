@@ -427,18 +427,18 @@ export const db = {
   },
 
   // Server-side notification queue — replaces local scheduling for smart reminders.
-  // Deletes any existing unsent reminder for this task first so there's never a duplicate.
-  async scheduleNotification(userId, taskId, title, body, sendAt) {
+  // Deletes any existing pending reminder for this task first so there's never a duplicate.
+  async scheduleNotification(userId, taskId, title, body, sendAt, type = 'task_reminder') {
     await supabase
       .from('scheduled_notifications')
       .delete()
       .eq('user_id', userId)
       .eq('task_id', taskId)
-      .eq('sent', false)
+      .eq('status', 'pending')
 
     const { error } = await supabase
       .from('scheduled_notifications')
-      .insert({ user_id: userId, task_id: taskId, title, body, send_at: sendAt })
+      .insert({ user_id: userId, task_id: taskId, title, body, send_at: sendAt, type })
     if (error) throw new Error(error.message)
   },
 
@@ -448,7 +448,7 @@ export const db = {
       .delete()
       .eq('user_id', userId)
       .eq('task_id', taskId)
-      .eq('sent', false)
+      .eq('status', 'pending')
   },
 
   // Task Notes (AI practice journal)
