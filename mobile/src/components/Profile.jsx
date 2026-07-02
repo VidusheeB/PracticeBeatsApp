@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
 import { useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useApp } from '../contexts/AppContext'
 import GoogleCalendarConnect from './GoogleCalendarConnect'
 
@@ -70,7 +71,8 @@ export default function Profile() {
   const xpIntoLevel = (user?.total_points ?? 0) % 100
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-4 pt-4 pb-24 gap-5">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <ScrollView contentContainerClassName="px-4 pt-4 pb-24 gap-5">
 
       {/* Profile card */}
       <View className="bg-white rounded-2xl p-6 shadow-sm items-center gap-3">
@@ -290,5 +292,6 @@ export default function Profile() {
       </TouchableOpacity>
 
     </ScrollView>
+    </SafeAreaView>
   )
 }

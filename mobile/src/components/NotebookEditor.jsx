@@ -1,4 +1,5 @@
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
@@ -122,13 +123,18 @@ export default function NotebookEditor() {
     return `Saved ${Math.round(secs / 60)}m ago`
   }
 
+  const insets = useSafeAreaInsets()
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-white"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Toolbar */}
-      <View className="flex-row items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
+      <View
+        className="flex-row items-center justify-between px-4 pb-2 border-b border-gray-100"
+        style={{ paddingTop: insets.top + 8 }}
+      >
         <TouchableOpacity onPress={handleDone} className="py-1 pr-3">
           <Text className="text-indigo-500 font-semibold text-base">‹ Done</Text>
         </TouchableOpacity>

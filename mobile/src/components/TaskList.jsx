@@ -25,7 +25,7 @@ export default function TaskList() {
   const [filter, setFilter] = useState('all')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showSmartCreate, setShowSmartCreate] = useState(false)
-  const [newTask, setNewTask] = useState({ title: '', category: 'repertoire', difficulty: 3, estimated_minutes: 30 })
+  const [newTask, setNewTask] = useState({ title: '', category: 'repertoire', difficulty: 3, estimated_minutes: '30' })
 
   const filteredTasks = filter === 'all' ? tasks : tasks.filter(t => t.status === filter)
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -37,8 +37,8 @@ export default function TaskList() {
   const handleCreate = async () => {
     if (!newTask.title.trim()) return
     try {
-      await createTask({ title: newTask.title, category: newTask.category, difficulty: newTask.difficulty, estimated_minutes: newTask.estimated_minutes })
-      setNewTask({ title: '', category: 'repertoire', difficulty: 3, estimated_minutes: 30 })
+      await createTask({ title: newTask.title, category: newTask.category, difficulty: newTask.difficulty, estimated_minutes: parseInt(newTask.estimated_minutes) || 30 })
+      setNewTask({ title: '', category: 'repertoire', difficulty: 3, estimated_minutes: '30' })
       setShowCreateForm(false)
     } catch {}
   }
@@ -121,17 +121,18 @@ export default function TaskList() {
             placeholder="e.g., Autumn Leaves - Solo Section"
           />
 
-          <View className="grid grid-cols-2 gap-2 flex-row flex-wrap">
+          <View className="flex-row flex-wrap gap-2">
             {categories.map(cat => (
               <TouchableOpacity
                 key={cat.value}
                 onPress={() => setNewTask({ ...newTask, category: cat.value })}
-                className={`flex-1 p-3 rounded-xl border-2 m-1 flex-row items-center gap-2 ${
+                className={`py-3 rounded-xl border-2 items-center justify-center ${
                   newTask.category === cat.value ? 'bg-indigo-50 border-indigo-500' : 'bg-gray-50 border-transparent'
                 }`}
+                style={{ width: '47%' }}
               >
-                <Text className="text-lg">{cat.icon}</Text>
-                <Text className="text-sm font-medium">{cat.label}</Text>
+                <Text className="text-xl mb-1">{cat.icon}</Text>
+                <Text className="text-xs font-medium text-center">{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -151,8 +152,8 @@ export default function TaskList() {
               <Text className="text-sm text-gray-600 mb-1">Est. Time (min)</Text>
               <TextInput
                 className="border border-gray-200 rounded-xl px-4 py-2"
-                value={String(newTask.estimated_minutes)}
-                onChangeText={v => setNewTask({ ...newTask, estimated_minutes: parseInt(v) || 30 })}
+                value={newTask.estimated_minutes}
+                onChangeText={v => setNewTask({ ...newTask, estimated_minutes: v.replace(/[^0-9]/g, '') })}
                 keyboardType="number-pad"
               />
             </View>

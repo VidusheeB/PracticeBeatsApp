@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
 import MindfulCheckIn from './MindfulCheckIn'
@@ -135,7 +136,8 @@ export default function PracticeSession() {
   // SETUP PHASE
   if (phase === 'setup') {
     return (
-      <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-4 pt-4 pb-24">
+      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <ScrollView contentContainerClassName="px-4 pt-4 pb-24">
         <Text className="text-2xl font-bold text-gray-900 mb-1">Start Practice</Text>
         <Text className="text-gray-500 mb-6">What are you working on today?</Text>
 
@@ -188,13 +190,15 @@ export default function PracticeSession() {
           />
         )}
       </ScrollView>
+      </SafeAreaView>
     )
   }
 
   // ACTIVE / PAUSED PHASE
   if (phase === 'active' || phase === 'paused') {
     return (
-      <View className="flex-1 bg-gray-50 items-center justify-center px-4">
+      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <View className="flex-1 items-center justify-center px-4">
         <Text className="text-gray-500 mb-2">{phase === 'paused' ? '⏸ Paused' : '🎵 Practicing...'}</Text>
         <Text className="text-6xl font-bold text-indigo-500 mb-8 font-mono">{formatTime(seconds)}</Text>
 
@@ -237,19 +241,24 @@ export default function PracticeSession() {
         </View>
 
         <TextInput
-          className="mt-8 w-full max-w-md border border-gray-200 rounded-xl px-4 py-3 bg-white text-center"
+          className="mt-8 w-full max-w-md border border-gray-200 rounded-xl px-4 py-3 bg-white"
+          style={{ minHeight: 80, textAlignVertical: 'top' }}
           value={notes}
           onChangeText={setNotes}
           placeholder="Quick note (optional)..."
+          multiline
+          blurOnSubmit={false}
         />
       </View>
+      </SafeAreaView>
     )
   }
 
   // RATING PHASE
   if (phase === 'rating') {
     return (
-      <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-4 py-8 items-center">
+      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <ScrollView contentContainerClassName="px-4 py-8 items-center">
         <Text className="text-6xl mb-4">🎉</Text>
         <Text className="text-2xl font-bold text-gray-900 mb-1">Great work!</Text>
         <Text className="text-gray-500 mb-8">
@@ -270,13 +279,15 @@ export default function PracticeSession() {
           <Text className="text-white font-semibold text-lg">Save & Finish</Text>
         </TouchableOpacity>
       </ScrollView>
+      </SafeAreaView>
     )
   }
 
   // COMPLETE PHASE
   if (phase === 'complete' && sessionResult) {
     return (
-      <View className="flex-1 bg-gray-50 items-center justify-center px-4">
+      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <View className="flex-1 items-center justify-center px-4">
         <Text className="text-8xl mb-4">🎵</Text>
         <Text className="text-3xl font-bold text-gray-900 mb-2">Session Complete!</Text>
         <View className="bg-indigo-50 rounded-2xl px-8 py-6 mb-6 items-center">
@@ -315,6 +326,7 @@ export default function PracticeSession() {
           />
         )}
       </View>
+      </SafeAreaView>
     )
   }
 

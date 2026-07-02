@@ -213,7 +213,7 @@ export const db = {
 
     const { data: session, error } = await supabase
       .from('practice_sessions')
-      .insert({ ...fields, points_earned: pointsEarned })
+      .insert({ ...fields, user_id: profile.id, points_earned: pointsEarned })
       .select().single()
     if (error) throw new Error(error.message)
 
@@ -401,7 +401,7 @@ export const db = {
           created_by: userId,
           title: e.title,
           date: e.date,
-          event_time: e.time || '09:00',
+          start_time: e.time || '09:00',
           event_type: 'other',
           source: 'google',
         }))

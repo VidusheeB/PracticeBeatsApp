@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native'
 import { useState, useCallback, useMemo } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useApp } from '../contexts/AppContext'
 import { db } from '../utils/supabase'
 import { scheduleAllReminders, scheduleEventReminder, cancelEventReminder } from '../utils/notifications'
@@ -17,11 +18,12 @@ const EVENT_TYPES = [
   { value: 'other', label: 'Other', color: '#6b7280', emoji: '📌' },
 ]
 
-const TIME_OPTIONS = [
-  { label: 'Morning', value: '09:00', display: '9:00 AM' },
-  { label: 'Afternoon', value: '15:00', display: '3:00 PM' },
-  { label: 'Evening', value: '19:00', display: '7:00 PM' },
-]
+function toAmPm(hhmm) {
+  if (!hhmm) return ''
+  const [h, m] = hhmm.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return hhmm
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
 
 function getTypeInfo(type) {
   return EVENT_TYPES.find(t => t.value === type) || EVENT_TYPES[4]
@@ -65,7 +67,9 @@ export default function Calendar() {
   const [newEvent, setNewEvent] = useState({
     title: '',
     event_type: 'rehearsal',
-    event_time: '09:00',
+    start_time: '09:00',
+    end_time: '10:00',
+    notes: '',
     ensemble_id: null,
   })
   const cells = useMemo(() => getMonthCells(year, month), [year, month])
@@ -170,7 +174,7 @@ export default function Calendar() {
   const selectedTasks = tasksByDate[selectedDate] || []
 
   const openForm = () => {
-    setNewEvent({ title: '', event_type: 'rehearsal', event_time: '09:00', ensemble_id: null })
+    setNewEvent({ title: '', event_type: 'rehearsal', start_time: '09:00', end_time: '10:00', notes: '', ensemble_id: null })
     setShowForm(true)
   }
 
@@ -178,9 +182,10 @@ export default function Calendar() {
     if (!newEvent.title.trim()) return
     setSaving(true)
     try {
+      const base = { title: newEvent.title.trim(), event_type: newEvent.event_type, start_time: newEvent.start_time, end_time: newEvent.end_time, notes: newEvent.notes || null, date: `${selectedDate}T${newEvent.start_time}:00` }
       const payload = isTeacher && newEvent.ensemble_id
-        ? { created_by: user.id, ensemble_id: newEvent.ensemble_id, title: newEvent.title.trim(), event_type: newEvent.event_type, event_time: newEvent.event_time, date: `${selectedDate}T${newEvent.event_time}:00` }
-        : { user_id: user.id, title: newEvent.title.trim(), event_type: newEvent.event_type, event_time: newEvent.event_time, date: `${selectedDate}T${newEvent.event_time}:00` }
+        ? { ...base, created_by: user.id, ensemble_id: newEvent.ensemble_id }
+        : { ...base, user_id: user.id }
 
       const created = await db.createCalendarEvent(payload)
       setEvents(prev => [...prev, created])
@@ -204,12 +209,9 @@ export default function Calendar() {
     ])
   }
 
-  const formatTime = (timeStr) => {
-    if (!timeStr) return ''
-    const opt = TIME_OPTIONS.find(t => t.value === timeStr)
-    if (opt) return opt.display
-    const [h, m] = timeStr.split(':').map(Number)
-    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+  const formatTime = (event) => {
+    const t = event?.start_time || (event?.date ? event.date.split('T')[1]?.slice(0, 5) : null)
+    return t ? toAmPm(t) : ''
   }
 
   const selectedDateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
@@ -217,7 +219,8 @@ export default function Calendar() {
   })
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="pb-24">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <ScrollView contentContainerClassName="pb-24">
 
       {/* Header */}
       <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
@@ -333,9 +336,9 @@ export default function Calendar() {
                 <Text className="font-medium text-gray-900">{event.title}</Text>
                 <View className="flex-row items-center gap-2 mt-0.5">
                   <Text className="text-xs text-gray-400">{type.label}</Text>
-                  {event.event_time && (
-                    <Text className="text-xs text-gray-400">· {formatTime(event.event_time)}</Text>
-                  )}
+                  {formatTime(event) ? (
+                    <Text className="text-xs text-gray-400">· {formatTime(event)}</Text>
+                  ) : null}
                   {event.ensemble_name && (
                     <View className="bg-indigo-50 px-2 py-0.5 rounded-full">
                       <Text className="text-xs text-indigo-600">{event.ensemble_name}</Text>
@@ -347,6 +350,9 @@ export default function Calendar() {
                     </View>
                   )}
                 </View>
+                {!!event.notes && (
+                  <Text className="text-xs text-gray-500 mt-1" numberOfLines={2}>{event.notes}</Text>
+                )}
               </View>
               {event.is_own && (
                 <TouchableOpacity onPress={() => handleDelete(event)} className="p-2">
@@ -399,6 +405,17 @@ export default function Calendar() {
                 autoFocus
               />
 
+              {/* Description */}
+              <TextInput
+                className="border border-gray-200 rounded-xl px-4 py-3"
+                style={{ minHeight: 80, textAlignVertical: 'top' }}
+                value={newEvent.notes}
+                onChangeText={v => setNewEvent(e => ({ ...e, notes: v }))}
+                placeholder="Description, Zoom link, location..."
+                multiline
+                blurOnSubmit={false}
+              />
+
               {/* Event type */}
               <View>
                 <Text className="text-sm font-medium text-gray-600 mb-2">Type</Text>
@@ -417,19 +434,26 @@ export default function Calendar() {
               </View>
 
               {/* Time */}
-              <View>
-                <Text className="text-sm font-medium text-gray-600 mb-2">Time</Text>
-                <View className="flex-row gap-2">
-                  {TIME_OPTIONS.map(t => (
-                    <TouchableOpacity
-                      key={t.value}
-                      onPress={() => setNewEvent(e => ({ ...e, event_time: t.value }))}
-                      className={`flex-1 py-2.5 rounded-xl border items-center ${newEvent.event_time === t.value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}
-                    >
-                      <Text className={`text-sm font-medium ${newEvent.event_time === t.value ? 'text-indigo-700' : 'text-gray-600'}`}>{t.label}</Text>
-                      <Text className="text-xs text-gray-400">{t.display}</Text>
-                    </TouchableOpacity>
-                  ))}
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-gray-600 mb-2">Start time</Text>
+                  <TextInput
+                    className="border border-gray-200 rounded-xl px-4 py-3 text-center"
+                    value={newEvent.start_time}
+                    onChangeText={v => setNewEvent(e => ({ ...e, start_time: v }))}
+                    placeholder="9:00 AM"
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-gray-600 mb-2">End time</Text>
+                  <TextInput
+                    className="border border-gray-200 rounded-xl px-4 py-3 text-center"
+                    value={newEvent.end_time}
+                    onChangeText={v => setNewEvent(e => ({ ...e, end_time: v }))}
+                    placeholder="10:00 AM"
+                    keyboardType="numbers-and-punctuation"
+                  />
                 </View>
               </View>
 
@@ -489,5 +513,6 @@ export default function Calendar() {
       </Modal>
 
     </ScrollView>
+    </SafeAreaView>
   )
 }

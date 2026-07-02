@@ -49,8 +49,9 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: 'white',
           borderTopColor: '#e5e7eb',
-          paddingBottom: 4,
-          height: 60,
+          paddingBottom: 20,
+          paddingTop: 8,
+          height: 80,
         },
         tabBarActiveTintColor: '#6366f1',
         tabBarInactiveTintColor: '#9ca3af',

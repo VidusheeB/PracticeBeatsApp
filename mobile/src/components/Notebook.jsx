@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Switch, ActivityIndicator } from 'react-native'
 import { useState, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useApp } from '../contexts/AppContext'
 import { db } from '../utils/supabase'
 
@@ -13,13 +14,13 @@ const TAG_META = {
   general:       { label: 'General',       symbol: '·' },
 }
 
-const CREAM = '#FAF7F0'
-const CREAM_DARK = '#F0EBE0'
-const INK = '#2C2416'
-const INK_LIGHT = '#7A6E5F'
-const INK_FAINT = '#B5A99A'
-const RULE = '#E8E0D0'
-const ACCENT = '#6B5B3E'
+const CREAM = '#F8F7FF'
+const CREAM_DARK = '#EEEDF8'
+const INK = '#1C1B2E'
+const INK_LIGHT = '#6B6880'
+const INK_FAINT = '#A8A6BE'
+const RULE = '#E0DFF0'
+const ACCENT = '#6366f1'
 
 function formatDateShort(dateStr) {
   const d = new Date(dateStr)
@@ -87,7 +88,7 @@ export default function Notebook() {
   )
 
   return (
-    <View style={{ flex: 1, backgroundColor: CREAM }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: CREAM }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
@@ -297,6 +298,6 @@ export default function Notebook() {
           </>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   )
 }

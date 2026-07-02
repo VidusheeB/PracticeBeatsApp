@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useApp } from '../contexts/AppContext'
@@ -101,7 +102,8 @@ export default function EnsembleList() {
   )
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-4 pt-4 pb-24 gap-4">
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <ScrollView contentContainerClassName="px-4 pt-4 pb-24 gap-4">
       <View className="flex-row items-center justify-between">
         <Text className="text-2xl font-bold text-gray-900">Classes</Text>
         <TouchableOpacity
@@ -188,5 +190,6 @@ export default function EnsembleList() {
         </View>
       )}
     </ScrollView>
+    </SafeAreaView>
   )
 }
