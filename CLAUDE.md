@@ -29,6 +29,7 @@ Scan the QR code with the Expo Go app on your phone (iOS or Android).
 - [ ] Paste real Claude API key into `mobile/.env`
 - [ ] Set Google Cloud OAuth client IDs in `mobile/src/utils/googleAuth.js` (top of file, 3 constants)
 - [ ] Run SQL in Supabase for notebook (see TODO.md — `notebook_entries` table + `ai_read_notebook` column)
+- [ ] **Wire up scheduled notifications** — `deliver-notifications` edge function is deployed, but nothing invokes it yet. Run `supabase/notifications-cron.sql` once in the Supabase SQL editor (paste the project's `service_role` key where the file says to — deliberately not something Claude should do, since it means putting a secret key into a query). Until this runs, no push notifications actually fire.
 
 ---
 
@@ -224,7 +225,7 @@ All migrations confirmed run ✅ except:
 
 ## Next priorities (pick up here)
 
-1. **Server-side push notifications** — Edge Function exists at `supabase/functions/deliver-notifications/index.ts` but not deployed. Run: `npx supabase functions deploy deliver-notifications --project-ref yqcwvpwzykawwndbyakw`
+1. **Server-side push notifications** — Edge Function at `supabase/functions/deliver-notifications/index.ts` is deployed and includes a relevance guard (skips reminders for tasks already practiced/deleted) + batched delivery. Nothing invokes it yet — run `supabase/notifications-cron.sql` once (see "Still needs setup" above) to wire up the every-minute `pg_cron` trigger.
 2. **UI redesign** — left sidebar nav, split-pane layout, activity feed on right, progress bar at bottom (hrs/XP/completed this week)
 3. **Image attachments in messaging** — teacher ↔ student photo support
 
