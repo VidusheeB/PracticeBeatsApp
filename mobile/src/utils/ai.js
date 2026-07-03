@@ -6,6 +6,10 @@ const CLAUDE_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_KEY || ''
 
 const API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-haiku-4-5-20251001' // fast + cost-effective for in-app use
+// AI Chat uses a stronger model + real web search — general-knowledge questions
+// (e.g. jazz theory, repertoire trivia) need grounding Haiku alone can't give,
+// and a wrong confident answer is worse than the extra cost on this one surface.
+const CHAT_MODEL = 'claude-sonnet-5'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIVACY SANITIZATION
@@ -478,7 +482,9 @@ Return only the table of contents text, nothing else.`
 
 // Multi-turn Claude call with system prompt and conversation history.
 // Used by the AI Chat screen — other functions use callClaude() instead.
-async function callClaudeWithHistory(systemPrompt, messages, maxTokens = 600) {
+// `tools` is a server-executed tool array (e.g. web_search) — Claude runs it
+// and the result comes back inline in this same response, no client-side loop.
+async function callClaudeWithHistory(systemPrompt, messages, maxTokens = 600, { model = MODEL, tools } = {}) {
   if (!CLAUDE_API_KEY) {
     throw new Error('Add your Claude API key to mobile/.env as EXPO_PUBLIC_ANTHROPIC_KEY')
   }
@@ -490,10 +496,11 @@ async function callClaudeWithHistory(systemPrompt, messages, maxTokens = 600) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       max_tokens: maxTokens,
       system: systemPrompt,
       messages,
+      ...(tools ? { tools } : {}),
     }),
   })
   if (!res.ok) {
@@ -501,7 +508,10 @@ async function callClaudeWithHistory(systemPrompt, messages, maxTokens = 600) {
     throw new Error(`Claude API error ${res.status}: ${err}`)
   }
   const data = await res.json()
-  return data.content[0].text
+  // With web_search enabled, content interleaves text blocks with
+  // server_tool_use / web_search_tool_result blocks — concatenate the text
+  // blocks rather than assuming content[0] is the whole answer.
+  return data.content.filter(b => b.type === 'text').map(b => b.text).join('\n\n')
 }
 
 // Freeform coaching chat with full app context in the system prompt.
@@ -578,6 +588,7 @@ Rules:
 - Be direct and coach-like, not chatbot-like. Sound like a real human music teacher
 - Keep responses concise: 2-4 sentences for most replies
 - If asked to recommend repertoire, base it on what they're already working on
+- For objective music facts you're not fully certain of (tune origins, chord changes, historical details) — use web search rather than asserting from memory. If the student corrects you, take it seriously and verify instead of restating your first answer
 - Never mention user IDs, emails, or any technical app internals`
 
   const apiMessages = [
@@ -585,7 +596,10 @@ Rules:
     { role: 'user', content: userMessage },
   ]
 
-  return callClaudeWithHistory(systemPrompt, apiMessages, 600)
+  return callClaudeWithHistory(systemPrompt, apiMessages, 600, {
+    model: CHAT_MODEL,
+    tools: [{ type: 'web_search_20260209', name: 'web_search' }],
+  })
 }
 
 // Generate a personalised coaching tip based on practice history + notes
